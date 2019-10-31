@@ -55,6 +55,9 @@ int main(int argc, char **argv) {
   // Register the OpenCensus gRPC plugin to enable stats and tracing in gRPC.
   grpc::RegisterOpenCensusPlugin();
 
+  // Register the gRPC views (latency, error count, etc).
+  grpc::RegisterOpenCensusViewsForExport();
+
   RegisterExporters();
 
   // Create a Channel to send RPCs over.
