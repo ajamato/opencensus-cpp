@@ -25,6 +25,9 @@
 #include "examples/grpc/exporters.h"
 #include "examples/grpc/hello.grpc.pb.h"
 #include "examples/grpc/hello.pb.h"
+#include "opencensus/stats/aggregation.h"
+#include "opencensus/stats/bucket_boundaries.h"
+#include "opencensus/stats/view_descriptor.h"
 #include "opencensus/tags/tag_key.h"
 #include "opencensus/tags/tag_map.h"
 #include "opencensus/tags/with_tag_map.h"
@@ -38,6 +41,31 @@ namespace {
 using examples::HelloReply;
 using examples::HelloRequest;
 using examples::HelloService;
+
+opencensus::tags::TagKey MyKey() {
+  static const auto key = opencensus::tags::TagKey::Register("my_key");
+  return key;
+}
+
+opencensus::stats::Aggregation MillisDistributionAggregation() {
+  return opencensus::stats::Aggregation::Distribution(
+      opencensus::stats::BucketBoundaries::Explicit({0, 0.01, 0.1, 1, 10}));
+}
+
+ABSL_CONST_INIT const absl::string_view kRpcClientRoundtripLatencyMeasureName =
+    "grpc.io/client/roundtrip_latency";
+
+::opencensus::tags::TagKey ClientMethodTagKey() {
+  static const auto method_tag_key =
+      ::opencensus::tags::TagKey::Register("grpc_client_method");
+  return method_tag_key;
+}
+
+::opencensus::tags::TagKey ClientStatusTagKey() {
+  static const auto status_tag_key =
+      ::opencensus::tags::TagKey::Register("grpc_client_status");
+  return status_tag_key;
+}
 
 }  // namespace
 
@@ -56,7 +84,17 @@ int main(int argc, char **argv) {
   grpc::RegisterOpenCensusPlugin();
 
   // Register the gRPC views (latency, error count, etc).
-  grpc::RegisterOpenCensusViewsForExport();
+  // grpc::RegisterOpenCensusViewsForExport();
+
+  // Add a view of client RPC latency broek down by our custom key.
+  opencensus::stats::ViewDescriptor()
+      .set_name("example/client/roundtrip_latency/cumulative")
+      .set_measure(kRpcClientRoundtripLatencyMeasureName)
+      .set_aggregation(MillisDistributionAggregation())
+      .add_column(ClientMethodTagKey())
+      .add_column(ClientStatusTagKey())
+      .add_column(MyKey())
+      .RegisterForExport();
 
   RegisterExporters();
 
@@ -73,8 +111,7 @@ int main(int argc, char **argv) {
             << "\n";
 
   // Create a tag map.
-  static const auto key = opencensus::tags::TagKey::Register("my_key");
-  opencensus::tags::TagMap tags({{key, "my_value"}});
+  opencensus::tags::TagMap tags({{MyKey(), "my_value"}});
 
   {
     opencensus::trace::WithSpan ws(span);
