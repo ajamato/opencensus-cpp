@@ -17,6 +17,12 @@ workspace(name = "io_opencensus_cpp")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("//bazel:deps.bzl", "opencensus_cpp_deps")
 
+# TODO: Revert this, it's just for development.
+local_repository(
+    name = "com_github_grpc_grpc",
+    path = "../../src/grpc",
+)
+
 opencensus_cpp_deps()
 
 # GoogleTest framework.
